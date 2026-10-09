@@ -1,4 +1,5 @@
 import csv
+import hashlib
 import io
 import logging
 from typing import Any
@@ -16,6 +17,8 @@ from app.services.ingestion.service import parse_legacy_file
 from app.services.normalization.service import normalize_material_description
 from app.services.parsing.service import parse_specifications
 from app import store
+from app.services.matching.batch_embeddings import generate_embeddings
+from app.services.matching.embeddings import get_embedding_model_name
 from app.services.matching.milvus_client import insert_material_embeddings
 
 logger = logging.getLogger(__name__)
@@ -155,8 +158,35 @@ async def upload_materials_csv(
             ),
         )
 
+    embedding_texts = {
+        int(record["id"]): (
+            " ".join((record.get("normalized_description") or record["description"]).split())
+        )
+        for record in new_records
+    }
     try:
-        store.MATERIALS.extend(new_records)
+        model_name = get_embedding_model_name()
+        vectors_by_text = generate_embeddings(embedding_texts.values())
+    except Exception as exc:
+        logger.exception("Embedding service failed during material ingestion")
+        raise HTTPException(
+            status_code=503,
+            detail="The embedding service is unavailable; no material rows were stored. Start the model service and retry the upload.",
+        ) from exc
+
+    embedding_rows = [
+        {
+            "material_id": material_id,
+            "model_name": model_name,
+            "text_hash": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+            "embedding": vectors_by_text[text],
+        }
+        for material_id, text in embedding_texts.items()
+    ]
+    try:
+        # The row and its vector commit together so matching never sees a new
+        # material that was only partially embedded.
+        store.MATERIALS.extend_with_embeddings(new_records, embedding_rows)
     except IntegrityError as exc:
         # Backstop for a concurrent upload that landed between the check above
         # and this insert.
@@ -171,19 +201,28 @@ async def upload_materials_csv(
             ),
         )
 
-    insert_material_embeddings([
-        {
-            "id": r["id"],
-            "description": r["description"],
-            "cpse": r["cpse"],
-            "category": r.get("category"),
-        }
-        for r in new_records
-    ])
+    vectors_by_id = {
+        material_id: vectors_by_text[text]
+        for material_id, text in embedding_texts.items()
+    }
+    milvus_vectors_stored = insert_material_embeddings(
+        [
+            {
+                "id": record["id"],
+                "description": embedding_texts[int(record["id"])],
+                "cpse": record["cpse"],
+                "category": record.get("category"),
+            }
+            for record in new_records
+        ],
+        vectors_by_id=vectors_by_id,
+    )
 
     return {
         "status": "success",
         "records_ingested": len(new_records),
+        "embeddings_stored": len(embedding_rows),
+        "milvus_vectors_stored": milvus_vectors_stored,
         "total_materials": len(store.MATERIALS),
         "sample": new_records[:10],
     }

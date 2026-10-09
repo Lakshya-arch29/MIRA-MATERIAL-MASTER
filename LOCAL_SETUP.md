@@ -1,5 +1,12 @@
 # MIRA — Local Setup from Scratch
 
+> **Runtime note:** this guide's model-download instructions describe an older version of
+> MIRA. The current backend uses the authenticated remote embedding API in
+> `backend/app/services/matching/embeddings.py`. Set `MIRA_MODEL_SERVER_URL` and
+> `MIRA_API_KEY` in `backend/.env`, and run the service described in
+> [DEPLOYMENT.md](DEPLOYMENT.md) before uploading or matching. The local-model sections
+> below have not yet been rewritten for this runtime.
+
 **Audience:** an evaluator starting on a clean machine. Nothing is assumed to be installed.
 **Platform:** Windows (PowerShell) first; macOS/Linux notes are given where they differ.
 **Time:** about 30–45 minutes, most of it downloads. Add 5–10 minutes for the first model download.
@@ -92,11 +99,12 @@ Expected: a series of `CREATE TABLE` / `CREATE INDEX` lines and **no `ERROR`**.
 psql -U postgres -d mira -c "\dt"
 ```
 
-You should see **9 tables**: `audit_logs`, `cnmc`, `cpses`, `feedback`, `mappings`,
-`match_suggestions`, `materials`, `upload_batches`, `users`.
+You should see **10 tables**, including `material_embedding_cache`, along with
+`audit_logs`, `cnmc`, `cpses`, `feedback`, `mappings`, `match_suggestions`, `materials`,
+`upload_batches`, and `users`.
 
-> No `CREATE EXTENSION` step is needed. MIRA does not use pgvector — vector search runs
-> in Milvus (§3).
+> No `CREATE EXTENSION` step is needed. MIRA stores material vectors as JSONB for reuse
+> during scoring. Milvus remains an optional source of extra nearest-neighbour candidates (§3).
 
 ---
 
@@ -465,7 +473,7 @@ is the intended behaviour, not a bug.
 
 | # | Check | Where | Passes when |
 |---|---|---|---|
-| 1 | Database ready | `psql -U postgres -d mira -c "\dt"` | 9 tables listed |
+| 1 | Database ready | `psql -U postgres -d mira -c "\dt"` | 10 tables listed |
 | 2 | Milvus up | `docker ps` | 3 containers `Up` |
 | 3 | Collection exists | `cd backend; python create_milvus_collection.py` | `Created …` or `already exists` |
 | 4 | Backend alive | http://127.0.0.1:8000/health | `{"status":"ok",...}` |

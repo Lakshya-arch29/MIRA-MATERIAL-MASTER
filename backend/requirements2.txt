@@ -9,7 +9,7 @@ python-dotenv
 PyYAML
 python-jose
 bcrypt
-psycopg  
+psycopg[binary]
 pydantic-settings
 SQLAlchemy
 httpx

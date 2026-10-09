@@ -59,18 +59,23 @@ Then open:
 macOS / Linux: use `python3 -m venv .venv` and `source .venv/bin/activate`; the rest is
 the same.
 
+For the Render + EC2 Qwen deployment layout, setup steps, and free-tier limitations, see
+[`DEPLOYMENT.md`](DEPLOYMENT.md).
+
 **Prerequisites:** Python 3.11-3.13, Node 20.19+ or 22.12+, PostgreSQL 14+, Docker Desktop,
 Git. Install in `backend/` - the `requirements.txt` at the repository root is a stray
 single-line pin (`pymilvus`) and is not the application's dependency list.
 
-**First run downloads the embedding model.** The first operation that needs embeddings -
-your first upload - fetches a 753 MB INT8 checkpoint (`AshIndian/Mira.ai`, hidden size
-1024) from Hugging Face, then **loads it back to verify it** and records a provenance file.
-This happens once per machine; every later run is fully local and offline. No GPU is
-needed and no token is required.
+The current backend calls a separate authenticated embedding service at
+`MIRA_MODEL_SERVER_URL`; it does not download or load Qwen in the API process. For the
+Render + EC2 setup, follow [DEPLOYMENT.md](DEPLOYMENT.md). For local runs, configure the
+backend `.env` with the model service URL and the same `MIRA_API_KEY` used by that service.
+The older [LOCAL_SETUP.md](LOCAL_SETUP.md) contains model-download instructions from a
+previous setup and is not accurate for this runtime.
 
-Seeded on first backend start: `admin@mira.gov.in` / `Admin@123`, plus steward, reviewer
-and auditor accounts (see [LOCAL_SETUP.md](LOCAL_SETUP.md) for all four).
+On first backend start the configured admin and baseline CPSE records are seeded. Hosted
+deployment disables demo-user seeding; set `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD`
+to create the administrator.
 
 ## How matching works
 
@@ -128,8 +133,11 @@ health and the landing page. Full detail at `/docs`.
 All runtime data is **Postgres-backed** - uploads, candidates, review decisions, mappings,
 CNMC records and audit events survive server restarts.
 
-- Schema: `backend/mira_full_schema.sql` (9 tables, mirroring the exact dict shapes the
-  routes produce). The app does not create tables: apply the schema before the first start.
+- Schema: `backend/mira_full_schema.sql` (10 tables, including durable material
+  embeddings). The app does not create tables: apply the schema before the first start.
+- Each material's 1024D vector is generated during ingestion and stored as JSONB in
+  `material_embedding_cache`. Matching reuses that vector for semantic scoring and sends
+  the same vector to Milvus when it is available; the model is not rerun for saved rows.
 - Engine: `backend/app/db_adapter.py` - `PersistentList` (drop-in list replacement) plus
   `DBRow` (a dict with write-through on in-place mutation, so
   `candidate["review_status"] = "APPROVED"` persists).
@@ -143,21 +151,20 @@ CNMC records and audit events survive server restarts.
 
 ## Embedding model
 
-- Model: `AshIndian/Mira.ai` - a fine-tuned Qwen3 checkpoint published in INT8 form,
-  hidden size 1024, about 753 MB.
-- Provisioning: on first use it is downloaded to `backend/models/Mira.ai`, **loaded back to
-  verify**, dimension-checked, and summarised in `MIRA_MODEL_PROVENANCE.txt`.
-- Off switch: `MODEL_AUTO_DOWNLOAD=false` makes the app fail loudly instead of downloading
-  when the model is absent (`MIRA_MODELS_DIR` / `MIRA_MODEL_PATH` point at an existing copy).
-- MiniLM (`all-MiniLM-L6-v2`) is retained only as a legacy name alias in the resolver; it
-  is not used for scoring at run time.
+- Model service: `backend/model_server/app.py` loads `AshIndian/Mira.ai` and provides
+  authenticated `/embed` and public `/health` endpoints.
+- Backend client: `backend/app/services/matching/embeddings.py` sends text batches to
+  `MIRA_MODEL_SERVER_URL`, authenticates with `MIRA_API_KEY`, and validates 1024-dimension
+  responses. The service selects CUDA when available and falls back to CPU.
+- The API deployment should not download or load the model. See
+  [DEPLOYMENT.md](DEPLOYMENT.md) for the separate EC2 model service setup.
 
 ## Repository layout
 
 ```text
 mira/
 ├── backend/
-│   ├── mira_full_schema.sql          # Postgres schema (9 tables)
+│   ├── mira_full_schema.sql          # Postgres schema (10 tables)
 │   ├── docker-compose.milvus.yml     # etcd + MinIO + Milvus
 │   ├── create_milvus_collection.py   # one-time collection setup
 │   ├── benchmark_matching.py · benchmark_pipeline.py
@@ -208,5 +215,5 @@ mira/
 - Data hygiene: keep large or local-only datasets out of Git. `Final_Master_Material_Records.csv`
   is a **Git-LFS pointer** (a 239 MB payload that is not in the repository) - use
   `Original_company_records_no_synthetic.csv` or the files under `data/` instead.
-- Never commit `.env`. Change the seeded demo passwords and replace `secret_key` before any
-  deployment; CORS is currently open for development.
+- Never commit `.env`. Configure a unique admin password, generated `SECRET_KEY`, and
+  exact frontend `CORS_ORIGINS` before deployment.

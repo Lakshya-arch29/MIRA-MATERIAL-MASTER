@@ -4,8 +4,17 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from app.core.config import settings
 
 
+def _sqlalchemy_database_url(url: str) -> str:
+    """Use the installed psycopg v3 driver for provider-standard Postgres URLs."""
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg://" + url[len("postgres://"):]
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg://" + url[len("postgresql://"):]
+    return url
+
+
 engine = create_engine(
-    settings.database_url,
+    _sqlalchemy_database_url(settings.database_url),
     pool_pre_ping=True,
 )
 

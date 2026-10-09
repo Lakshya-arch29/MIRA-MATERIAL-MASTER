@@ -176,7 +176,11 @@ def insert_material_embedding(
     ) > 0
 
 
-def insert_material_embeddings(records: Iterable[dict[str, Any]]) -> int:
+def insert_material_embeddings(
+    records: Iterable[dict[str, Any]],
+    *,
+    vectors_by_id: dict[int, Sequence[float]] | None = None,
+) -> int:
     """Batch variant: embeds in batch and upserts many materials into Milvus in one round trip."""
     rows = [r for r in records if (r.get("description") or "").strip()]
     if not rows:
@@ -194,16 +198,18 @@ def insert_material_embeddings(records: Iterable[dict[str, Any]]) -> int:
         logger.warning("Skipping Milvus write, Milvus unreachable: %s", exc)
         return 0
 
-    descriptions = [str(r["description"]).strip() for r in rows]
-    try:
-        embedding_map = generate_embeddings(
-            descriptions,
-            batch_size=EMBEDDING_BATCH_SIZE,
-            model_name=MILVUS_EMBEDDING_MODEL,
-        )
-    except Exception as exc:
-        logger.warning("Batch embedding generation failed during Milvus insert: %s", exc)
-        return 0
+    embedding_map: dict[str, Sequence[float]] = {}
+    if vectors_by_id is None:
+        descriptions = [str(r["description"]).strip() for r in rows]
+        try:
+            embedding_map = generate_embeddings(
+                descriptions,
+                batch_size=EMBEDDING_BATCH_SIZE,
+                model_name=MILVUS_EMBEDDING_MODEL,
+            )
+        except Exception as exc:
+            logger.warning("Batch embedding generation failed during Milvus insert: %s", exc)
+            return 0
 
     ids: list[int] = []
     vectors: list[Sequence[float]] = []
@@ -212,7 +218,11 @@ def insert_material_embeddings(records: Iterable[dict[str, Any]]) -> int:
 
     for r in rows:
         desc = str(r["description"]).strip()
-        vector = embedding_map.get(desc)
+        vector = (
+            vectors_by_id.get(int(r["id"]))
+            if vectors_by_id is not None
+            else embedding_map.get(desc)
+        )
         if not vector:
             continue
         ids.append(int(r["id"]))

@@ -66,7 +66,8 @@ def seed_default_users_and_cpses() -> None:
             else:
                 cpse_map[cpse_data["short_code"]] = existing.id
 
-        for user_data in DEFAULT_USERS:
+        users_to_seed = DEFAULT_USERS if settings.seed_demo_users else DEFAULT_USERS[:1]
+        for user_data in users_to_seed:
             existing_user = db.query(User).filter(User.email == user_data["email"].lower()).first()
             cpse_id = cpse_map.get(user_data["cpse_short_code"]) if user_data["cpse_short_code"] else None
             if existing_user is None:

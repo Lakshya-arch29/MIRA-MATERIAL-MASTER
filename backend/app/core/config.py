@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     debug: bool = True
 
     database_url: str = "postgresql://postgres:postgres@localhost:5432/mira"
+    cors_origins: str = "http://localhost:5173"
+    seed_demo_users: bool = True
 
     # Security & JWT configuration
     secret_key: str = "mira-development-secret-key-change-in-production-min32chars"

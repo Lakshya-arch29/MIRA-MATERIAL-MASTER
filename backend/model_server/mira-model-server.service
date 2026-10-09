@@ -1,0 +1,25 @@
+[Unit]
+Description=MIRA Qwen embedding API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mira
+Group=mira
+WorkingDirectory=/opt/mira-model-server
+EnvironmentFile=/etc/mira-model-server.env
+Environment=HF_HOME=/opt/mira-model-server/huggingface
+ExecStart=/opt/mira-model-server/.venv/bin/uvicorn app:app --host 127.0.0.1 --port 8001 --workers 1
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=900
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/mira-model-server
+
+[Install]
+WantedBy=multi-user.target

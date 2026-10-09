@@ -119,6 +119,21 @@ CREATE INDEX idx_materials_desc_gin ON materials
     USING gin(to_tsvector('english', description));
 
 
+-- Durable vectors created during ingestion. Matching reuses these vectors for
+-- scoring and copies the same values into Milvus when it is available.
+CREATE TABLE material_embedding_cache (
+    material_id BIGINT PRIMARY KEY
+        REFERENCES materials(id) ON DELETE CASCADE,
+    model_name TEXT NOT NULL,
+    text_hash VARCHAR(64) NOT NULL,
+    embedding JSONB NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_material_embedding_model
+    ON material_embedding_cache(model_name);
+
+
 -- ============================================================
 -- MATCH SUGGESTIONS
 --

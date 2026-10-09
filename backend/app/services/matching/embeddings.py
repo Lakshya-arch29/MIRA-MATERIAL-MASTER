@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import os
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from typing import Any
@@ -52,6 +52,10 @@ EMBED_TIMEOUT = _env_float("MIRA_EMBED_TIMEOUT", DEFAULT_TIMEOUT, 15.0, 600.0)
 
 class MiraRemoteEmbeddingError(RuntimeError):
     pass
+
+
+def _normalize_embedding_text(text: str) -> str:
+    return " ".join(text.split()).strip()
 
 
 class RemoteMiraEmbeddingModel:
@@ -333,27 +337,28 @@ class EmbeddingCache:
         self._cache: dict[tuple[str, str], np.ndarray] = {}
         if initial_embeddings:
             for text, embedding in initial_embeddings.items():
-                self._cache[(self.model_name, text)] = embedding
+                self._cache[(self.model_name, _normalize_embedding_text(text))] = embedding
 
     def _resolve_model(self, model_name: str | None = None) -> str:
         return resolve_model_name(model_name) if model_name is not None else self.model_name
 
     def get(self, text: str, model_name: str | None = None) -> np.ndarray | None:
-        return self._cache.get((self._resolve_model(model_name), text))
+        return self._cache.get((self._resolve_model(model_name), _normalize_embedding_text(text)))
 
     def set(self, text: str, embedding: np.ndarray, model_name: str | None = None) -> None:
-        self._cache[(self._resolve_model(model_name), text)] = embedding
+        self._cache[(self._resolve_model(model_name), _normalize_embedding_text(text))] = embedding
 
     def precompute(
         self,
         texts: Iterable[str],
         batch_size: int = EMBED_BATCH_SIZE,
         model_name: str | None = None,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> None:
         model = self._resolve_model(model_name)
         unique_texts = list(
             dict.fromkeys(
-                text for text in texts
+                _normalize_embedding_text(text) for text in texts
                 if isinstance(text, str) and text.strip()
             )
         )
@@ -362,26 +367,41 @@ class EmbeddingCache:
             if (model, text) not in self._cache
         ]
         if not missing:
+            if progress_callback is not None:
+                progress_callback(0, 0)
             return
 
         embedding_model = get_embedding_model(model)
-        embeddings = embedding_model.encode(
-            missing,
-            batch_size=max(1, min(int(batch_size), EMBED_BATCH_SIZE)),
-            normalize_embeddings=True,
-            show_progress_bar=False,
-        )
+        effective_batch_size = max(1, min(int(batch_size), EMBED_BATCH_SIZE))
+        # Smaller HTTP chunks make long matching runs report visible progress
+        # while keeping each model request comfortably below its API limit.
+        chunk_size = min(effective_batch_size, 16)
+        if progress_callback is not None:
+            progress_callback(0, len(missing))
 
-        expected_shape = (len(missing), EXPECTED_EMBEDDING_DIM)
-        if embeddings.shape != expected_shape:
-            raise MiraRemoteEmbeddingError(
-                f"Invalid embedding matrix shape: {embeddings.shape}; expected {expected_shape}."
+        done = 0
+        for start in range(0, len(missing), chunk_size):
+            chunk = missing[start : start + chunk_size]
+            embeddings = embedding_model.encode(
+                chunk,
+                batch_size=effective_batch_size,
+                normalize_embeddings=True,
+                show_progress_bar=False,
             )
+            expected_shape = (len(chunk), EXPECTED_EMBEDDING_DIM)
+            if embeddings.shape != expected_shape:
+                raise MiraRemoteEmbeddingError(
+                    f"Invalid embedding matrix shape: {embeddings.shape}; expected {expected_shape}."
+                )
 
-        for text, embedding in zip(missing, embeddings):
-            self._cache[(model, text)] = embedding
+            for text, embedding in zip(chunk, embeddings):
+                self._cache[(model, text)] = embedding
+            done += len(chunk)
+            if progress_callback is not None:
+                progress_callback(done, len(missing))
 
     def get_or_encode(self, text: str, model_name: str | None = None) -> np.ndarray | None:
+        text = _normalize_embedding_text(text)
         if not text:
             return None
 
@@ -428,16 +448,22 @@ class EmbeddingCache:
         return len(self._cache)
 
     def __contains__(self, text: str) -> bool:
-        return (self.model_name, text) in self._cache
+        return (self.model_name, _normalize_embedding_text(text)) in self._cache
 
 
 def precompute_embeddings(
     texts: Iterable[str],
     batch_size: int = EMBED_BATCH_SIZE,
     model_name: str | None = None,
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> EmbeddingCache:
     cache = EmbeddingCache(model_name=model_name)
-    cache.precompute(texts, batch_size=batch_size, model_name=model_name)
+    cache.precompute(
+        texts,
+        batch_size=batch_size,
+        model_name=model_name,
+        progress_callback=progress_callback,
+    )
     return cache
 
 
