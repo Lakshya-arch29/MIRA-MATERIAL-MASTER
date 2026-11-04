@@ -9,44 +9,42 @@ reviewers, and produces traceable **Common National Material Codes (NMC)** with 
 and analytics. Source CPSE codes are always preserved - MIRA is a harmonization layer,
 never an ERP replacement.
 
-## The problem, its impact, and MIRA's approach
+## The problem and its industry impact
 
-Central Public Sector Enterprises (CPSEs) often keep separate material masters in their
-own systems. The same item can appear under different codes, names, abbreviations, units,
-or specifications. At the same time, two descriptions that look similar may refer to
-different parts because a grade, size, pressure rating, or other critical specification
-differs.
+Central Public Sector Enterprises (CPSEs) maintain material records in separate systems.
+The same item can have different codes, descriptions, units, or specifications across
+organizations. Similar-looking descriptions can also refer to different parts when a
+critical detail, such as material grade or size, differs.
 
-This makes it harder to see when organizations hold or buy the same material, compare
-inventory, and identify opportunities to coordinate procurement. India's
+These differences make it harder to identify common materials, compare inventory, and
+coordinate purchasing across organizations. India's
 [Manual for Procurement of Goods](https://doe.gov.in/files/circulars_document/Manual_Goods_2024.pdf)
-describes the item master as a core procurement record, including the item's code,
+describes the item master as a core procurement record containing an item's code,
 description, specifications, usage, and inventory parameters. The
 [Directorate of Standardisation](https://ddpdos.gov.in/ncb-india/nato-codification/benefits-of-codification)
-also describes how consistent item identification can support better requirements
-planning, procurement coordination, and consolidated purchasing. These are potential
-benefits of reliable, shared material identities; MIRA recommends mappings and does not
-claim procurement savings automatically.
+notes that consistent identification can support requirements planning and coordinated
+procurement. These are potential benefits of harmonized material data, not guaranteed
+savings.
 
-MIRA tackles the problem by normalizing descriptions and specifications, then combining
-cross-CPSE candidate blocking with text, semantic, and specification comparisons. It
-flags critical conflicts so similar-looking but technically different parts are not
-treated as the same. Reviewers validate proposed matches; only approved groups receive a
-standardized common record and Common National Material Code. Each CPSE's original code
-remains mapped and traceable, with decisions recorded for audit.
+## My Contribution
+
+Researched and implemented MIRA's PostgreSQL–Milvus integration. PostgreSQL stores
+materials and their cached embeddings; Milvus uses those same vectors for similarity
+search. Ingestion generates each embedding once, saves it in PostgreSQL, and sends it to
+Milvus when available. Matching reuses the saved vector for scoring, and database-based
+candidate matching can continue if Milvus is offline.
+
+## How MIRA addresses the problem
+
+MIRA normalizes descriptions and specifications, then combines cross-CPSE candidate
+blocking with text, semantic, and specification comparisons. Critical specification
+conflicts prevent similar-looking but different parts from being treated as a match.
+Reviewers validate proposed matches; approved groups can be standardized into a common
+record and **Common National Material Code (NMC)**. Original CPSE codes remain mapped and
+traceable, and decisions are recorded for audit.
 
 > **Similarity finds the candidate. Specifications decide whether it is safe.
 > Humans control the final mapping.**
-> ### PostgreSQL + Milvus Integration
-
-MIRA uses PostgreSQL and Milvus for complementary roles:
-
-- **PostgreSQL** stores material records and their cached embeddings as durable application data.
-- **Milvus** searches those vectors to find additional semantically similar material candidates.
-- **Embeddings are generated once:** ingestion saves each vector in PostgreSQL and sends the same vector to Milvus. Matching reuses the saved vector for scoring.
-- **Matching remains available without Milvus:** the database-backed candidate matching can continue if Milvus is offline.
-
-**Contribution:** Researched and built the PostgreSQL–Milvus integration, including vector storage, synchronization, and fallback behavior.
 
 ## Quickstart (local run)
 
