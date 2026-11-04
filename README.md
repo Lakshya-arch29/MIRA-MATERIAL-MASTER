@@ -9,7 +9,7 @@ reviewers, and produces traceable **Common National Material Codes (NMC)** with 
 and analytics. Source CPSE codes are always preserved - MIRA is a harmonization layer,
 never an ERP replacement.
 
-## The problem and its industry impact
+## The problem
 
 Central Public Sector Enterprises (CPSEs) maintain material records in separate systems.
 The same item can have different codes, descriptions, units, or specifications across
@@ -17,24 +17,21 @@ organizations. Similar-looking descriptions can also refer to different parts wh
 critical detail, such as material grade or size, differs.
 
 These differences make it harder to identify common materials, compare inventory, and
-coordinate purchasing across organizations. India's
+coordinate purchasing across organizations.
+
+## Research: impact on industry
+
+India's
 [Manual for Procurement of Goods](https://doe.gov.in/files/circulars_document/Manual_Goods_2024.pdf)
 describes the item master as a core procurement record containing an item's code,
 description, specifications, usage, and inventory parameters. The
 [Directorate of Standardisation](https://ddpdos.gov.in/ncb-india/nato-codification/benefits-of-codification)
 notes that consistent identification can support requirements planning and coordinated
-procurement. These are potential benefits of harmonized material data, not guaranteed
-savings.
+procurement.
 
-## My Contribution
+These are potential benefits of harmonized material data, not guaranteed savings.
 
-Researched and implemented MIRA's PostgreSQL–Milvus integration. PostgreSQL stores
-materials and their cached embeddings; Milvus uses those same vectors for similarity
-search. Ingestion generates each embedding once, saves it in PostgreSQL, and sends it to
-Milvus when available. Matching reuses the saved vector for scoring, and database-based
-candidate matching can continue if Milvus is offline.
-
-## How MIRA addresses the problem
+## How MIRA solves it
 
 MIRA normalizes descriptions and specifications, then combines cross-CPSE candidate
 blocking with text, semantic, and specification comparisons. Critical specification
@@ -45,6 +42,14 @@ traceable, and decisions are recorded for audit.
 
 > **Similarity finds the candidate. Specifications decide whether it is safe.
 > Humans control the final mapping.**
+
+## My contribution
+
+Researched and implemented MIRA's PostgreSQL–Milvus integration. PostgreSQL stores
+materials and their cached embeddings; Milvus uses those same vectors for similarity
+search. Ingestion generates each embedding once, saves it in PostgreSQL, and sends it to
+Milvus when available. Matching reuses the saved vector for scoring, and database-based
+candidate matching can continue if Milvus is offline.
 
 ## Quickstart (local run)
 
