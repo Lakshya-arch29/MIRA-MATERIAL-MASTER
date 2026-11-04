@@ -37,6 +37,16 @@ remains mapped and traceable, with decisions recorded for audit.
 
 > **Similarity finds the candidate. Specifications decide whether it is safe.
 > Humans control the final mapping.**
+> ### PostgreSQL + Milvus Integration
+
+MIRA uses PostgreSQL and Milvus for complementary roles:
+
+- **PostgreSQL** stores material records and their cached embeddings as durable application data.
+- **Milvus** searches those vectors to find additional semantically similar material candidates.
+- **Embeddings are generated once:** ingestion saves each vector in PostgreSQL and sends the same vector to Milvus. Matching reuses the saved vector for scoring.
+- **Matching remains available without Milvus:** the database-backed candidate matching can continue if Milvus is offline.
+
+**Contribution:** Researched and built the PostgreSQL–Milvus integration, including vector storage, synchronization, and fallback behavior.
 
 ## Quickstart (local run)
 
