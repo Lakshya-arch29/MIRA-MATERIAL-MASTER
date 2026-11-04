@@ -11,45 +11,43 @@ never an ERP replacement.
 
 ## The problem
 
-Central Public Sector Enterprises (CPSEs) maintain material records in separate systems.
-The same item can have different codes, descriptions, units, or specifications across
-organizations. Similar-looking descriptions can also refer to different parts when a
-critical detail, such as material grade or size, differs.
+CPSEs maintain material records in separate systems, which leads to:
 
-These differences make it harder to identify common materials, compare inventory, and
-coordinate purchasing across organizations.
+- The same item carrying **different codes** across organizations
+- Different **descriptions, units, or specifications** for the same item
+- **Similar-looking descriptions** that are actually different parts, because a critical detail such as material grade or size differs
+- No common view of what each organization holds or buys
 
 ## Research: impact on industry
 
-India's
-[Manual for Procurement of Goods](https://doe.gov.in/files/circulars_document/Manual_Goods_2024.pdf)
-describes the item master as a core procurement record containing an item's code,
-description, specifications, usage, and inventory parameters. The
-[Directorate of Standardisation](https://ddpdos.gov.in/ncb-india/nato-codification/benefits-of-codification)
-notes that consistent identification can support requirements planning and coordinated
-procurement.
-
-These are potential benefits of harmonized material data, not guaranteed savings.
+- Hard to identify **common materials** across organizations
+- Hard to **compare inventory** across organizations
+- Hard to **coordinate purchasing** across organizations
+- Duplicate or near-duplicate records that go unnoticed
+- Manual matching is slow, and a wrong match (e.g. different grade) can lead to a wrong part being treated as the same
 
 ## How MIRA solves it
 
-MIRA normalizes descriptions and specifications, then combines cross-CPSE candidate
-blocking with text, semantic, and specification comparisons. Critical specification
-conflicts prevent similar-looking but different parts from being treated as a match.
-Reviewers validate proposed matches; approved groups can be standardized into a common
-record and **Common National Material Code (NMC)**. Original CPSE codes remain mapped and
-traceable, and decisions are recorded for audit.
+- **Normalizes** descriptions and specifications
+- **Finds candidates** with cross-CPSE blocking
+- **Compares** using text, semantic, and specification scores
+- **Blocks false matches**: critical specification conflicts stop similar-looking but different parts from being treated as a match
+- **Human review**: reviewers validate every proposed match
+- **Standardizes** approved groups into a common record and **Common National Material Code (NMC)**
+- **Stays traceable**: original CPSE codes remain mapped, and every decision is recorded for audit
 
 > **Similarity finds the candidate. Specifications decide whether it is safe.
 > Humans control the final mapping.**
 
 ## My contribution
 
-Researched and implemented MIRA's PostgreSQL–Milvus integration. PostgreSQL stores
-materials and their cached embeddings; Milvus uses those same vectors for similarity
-search. Ingestion generates each embedding once, saves it in PostgreSQL, and sends it to
-Milvus when available. Matching reuses the saved vector for scoring, and database-based
-candidate matching can continue if Milvus is offline.
+Researched and implemented MIRA's PostgreSQL-Milvus integration:
+
+- **PostgreSQL** stores materials and their cached embeddings
+- **Milvus** uses those same vectors for similarity search
+- **Ingestion** generates each embedding once, saves it in PostgreSQL, and sends it to Milvus when available
+- **Matching** reuses the saved vector for scoring instead of regenerating it
+- **Fallback**: database-based candidate matching continues if Milvus is offline
 
 ## Quickstart (local run)
 
