@@ -9,6 +9,32 @@ reviewers, and produces traceable **Common National Material Codes (NMC)** with 
 and analytics. Source CPSE codes are always preserved - MIRA is a harmonization layer,
 never an ERP replacement.
 
+## The problem, its impact, and MIRA's approach
+
+Central Public Sector Enterprises (CPSEs) often keep separate material masters in their
+own systems. The same item can appear under different codes, names, abbreviations, units,
+or specifications. At the same time, two descriptions that look similar may refer to
+different parts because a grade, size, pressure rating, or other critical specification
+differs.
+
+This makes it harder to see when organizations hold or buy the same material, compare
+inventory, and identify opportunities to coordinate procurement. India's
+[Manual for Procurement of Goods](https://doe.gov.in/files/circulars_document/Manual_Goods_2024.pdf)
+describes the item master as a core procurement record, including the item's code,
+description, specifications, usage, and inventory parameters. The
+[Directorate of Standardisation](https://ddpdos.gov.in/ncb-india/nato-codification/benefits-of-codification)
+also describes how consistent item identification can support better requirements
+planning, procurement coordination, and consolidated purchasing. These are potential
+benefits of reliable, shared material identities; MIRA recommends mappings and does not
+claim procurement savings automatically.
+
+MIRA tackles the problem by normalizing descriptions and specifications, then combining
+cross-CPSE candidate blocking with text, semantic, and specification comparisons. It
+flags critical conflicts so similar-looking but technically different parts are not
+treated as the same. Reviewers validate proposed matches; only approved groups receive a
+standardized common record and Common National Material Code. Each CPSE's original code
+remains mapped and traceable, with decisions recorded for audit.
+
 > **Similarity finds the candidate. Specifications decide whether it is safe.
 > Humans control the final mapping.**
 
